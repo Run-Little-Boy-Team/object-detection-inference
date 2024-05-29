@@ -291,10 +291,14 @@ void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images
 void YOLO::stream(string video, int webcam)
 {
     VideoCapture cap;
+#ifdef LIBCAMERA_FOUND
     PiCamera camera;
+#endif
     if (video == "pi")
     {
+#ifdef LIBCAMERA_FOUND
         cam.startVideo();
+#endif
     }
     else
     {
@@ -323,10 +327,12 @@ void YOLO::stream(string video, int webcam)
         Mat frame;
         if (video == "pi")
         {
+#ifdef LIBCAMERA_FOUND
             if (!cam.getVideoFrame(frame, 1000))
             {
                 continue;
             }
+#endif
         }
         else
         {
@@ -350,7 +356,9 @@ void YOLO::stream(string video, int webcam)
     }
     if (video == "pi")
     {
+#ifdef LIBCAMERA_FOUND
         cam.stopVideo();
+#endif
     }
     else
     {

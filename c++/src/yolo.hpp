@@ -9,14 +9,18 @@
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
+#ifdef LIBCAMERA_FOUND
 #include <lccv.hpp>
+#endif
 
 using namespace std;
 using namespace Ort;
 using namespace cv;
-using namespace lccv
+#ifdef LIBCAMERA_FOUND
+using namespace lccv;
+#endif
 
-typedef struct
+    typedef struct
 {
     int classId;
     float confidence;
