@@ -4,10 +4,10 @@ Running RLB object detection model in Python or C++.
 ## Installation
 
 ### Python
-Run [./run/python](./run/python/install.sh).
+Run [./python/install.sh](./python/install.sh).
 
 ### C++
-Run [./run/c++/install.sh](./run/c++/install.sh).
+Run [./c++/install.sh](./c++/install.sh).
 
 ### GPU support
 Run the install script with the `gpu` argument.
@@ -18,17 +18,17 @@ Run the install script with the `gpu` argument.
 ### Python
 #### Run
 ```bash
-python3 ./run/python/main.py <args>
+python3 ./python/main.py <args>
 ```
 
 ### C++
 #### Build
 ```bash
-./run/c++/build.sh
+./c++/build.sh
 ```
 #### Run
 ```bash
-./run/c++/main <args>
+./c++/main <args>
 ```
 
 ### CLI arguments
