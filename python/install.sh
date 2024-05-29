@@ -4,7 +4,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 
 version="1.18.0"
 
-arch=$(uname -p)
+arch=$(uname -m)
 if [ "$arch" == "x86_64" ]; then
     arch="x64"
 elif [ "$arch" == "aarch64" ]; then

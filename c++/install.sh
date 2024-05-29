@@ -1,13 +1,8 @@
 #!/bin/bash
 
-if [ $EUID != 0 ]; then
-    sudo "$0" "$USER" "$@"
-    exit $?
-fi
-
 version="1.18.0"
 
-arch=$(uname -p)
+arch=$(uname -m)
 if [ "$arch" == "x86_64" ]; then
     arch="x64"
 elif [ "$arch" == "aarch64" ]; then
@@ -18,15 +13,15 @@ else
 fi
 echo "Architecture: $arch"
 
-if [ "$2" == "gpu" ] && [ "$arch" == "x64" ]; then
+if [ "$1" == "gpu" ] && [ "$arch" == "x64" ]; then
     gpu=-gpu
     echo "GPU support enabled"
-    apt install -y nvidia-cuda-toolkit nvidia-cudnn
+    sudo apt install -y nvidia-cuda-toolkit nvidia-cudnn
 else
     gpu=""
 fi
 
-apt install -y wget libopencv-dev
+sudo apt install -y wget libopencv-dev
 
 name="onnxruntime-linux-$arch$gpu-$version"
 file="$name.tgz"
@@ -40,8 +35,8 @@ echo "Installing $name"
 cp -rf $name/lib/* /usr/local/lib/
 cp -rf $name/include/* /usr/local/include/
 rm -rf $name
-echo export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib >> /home/$1/.bashrc
-source /home/$1/.bashrc
+echo export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib >> /home/$USER/.bashrc
+source /home/$USER/.bashrc
 name="LCCV"
 url="https://github.com/kbarni/LCCV"
 echo "Cloning $url into $name"
