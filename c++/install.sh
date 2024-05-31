@@ -32,8 +32,8 @@ echo "Extracting $file"
 tar -xf $file
 rm $file
 echo "Installing $name"
-cp -rf $name/lib/* /usr/local/lib/
-cp -rf $name/include/* /usr/local/include/
+sudo cp -rf $name/lib/* /usr/local/lib/
+sudo cp -rf $name/include/* /usr/local/include/
 rm -rf $name
 echo export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib >> /home/$USER/.bashrc
 source /home/$USER/.bashrc
