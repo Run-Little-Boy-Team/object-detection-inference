@@ -13,7 +13,6 @@ find_package(ncnn REQUIRED)
 
 IF(LIBCAMERA_FOUND) 
   include_directories(${LIBCAMERA_INCLUDE_DIRS} ${OPENCV_INCLUDE_DIRS})
-  add_definitions(-DFOUND_LIBCAMERA)
 else()
   include_directories(${OpenCV_INCLUDE_DIRS})
 endif()

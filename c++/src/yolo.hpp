@@ -9,15 +9,16 @@
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
-#ifdef LIBCAMERA_FOUND
+#if __has_include(<lccv.hpp>)
 #include <lccv.hpp>
+#define LCCV
 #endif
 #include "net.h"
 
 using namespace std;
 using namespace Ort;
 using namespace cv;
-#ifdef LIBCAMERA_FOUND
+#ifdef LCCV
 using namespace lccv;
 #endif
 
