@@ -12,6 +12,7 @@
 #ifdef LIBCAMERA_FOUND
 #include <lccv.hpp>
 #endif
+#include "net.h"
 
 using namespace std;
 using namespace Ort;
@@ -20,7 +21,7 @@ using namespace cv;
 using namespace lccv;
 #endif
 
-    typedef struct
+typedef struct
 {
     int classId;
     float confidence;
@@ -30,7 +31,10 @@ using namespace lccv;
 class YOLO
 {
 private:
-    Session *model;
+    string modelPath;
+    string inferenceEngine;
+    Session *ortModel;
+    ncnn::Net ncnnModel;
     YAML::Node configuration;
     float rectConfidenceThreshold;
     float iouThreshold;
@@ -51,5 +55,8 @@ public:
     void showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps);
     void stream(string video, int webcam);
 };
+
+bool endsWith(string str, string ending);
+void printHelp();
 
 #endif

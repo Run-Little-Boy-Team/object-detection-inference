@@ -21,7 +21,7 @@ else
     gpu=""
 fi
 
-sudo apt install -y wget libopencv-dev
+sudo apt install -y wget libopencv-dev build-essential gcc g++ libprotobuf-dev protobuf-compiler libomp-dev libvulkan-dev
 
 name="onnxruntime-linux-$arch$gpu-$version"
 file="$name.tgz"
@@ -37,6 +37,24 @@ cp -rf $name/include/* /usr/local/include/
 rm -rf $name
 echo export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib >> /home/$USER/.bashrc
 source /home/$USER/.bashrc
+
+name="ncnn"
+url="https://github.com/Tencent/ncnn"
+echo "Cloning $url into $name"
+git clone $url $name
+cd $name
+git submodule update --init
+echo "Compiling $name"
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=ON ..
+make -j4
+echo "Installing $name"
+make install
+sudo cp -rf ./install/* /usr/local/
+cd ../..
+rm -rf $name
+
 name="LCCV"
 url="https://github.com/kbarni/LCCV"
 echo "Cloning $url into $name"
@@ -51,4 +69,5 @@ echo "Installing $name"
 sudo make install
 cd ../..
 rm -rf $name
+
 echo "Done"

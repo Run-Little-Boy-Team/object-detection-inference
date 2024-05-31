@@ -1,28 +1,5 @@
 #include "yolo.hpp"
 
-bool endsWith(string str, string ending)
-{
-    if (str.length() >= ending.length())
-    {
-        return (str.compare(str.length() - ending.length(), ending.length(), ending) == 0);
-    }
-    else
-    {
-        return false;
-    }
-}
-
-void printHelp()
-{
-    cout << "Usage:" << endl;
-    cout << "--model <path-to-your-onnx-model> : Specify the model to use" << endl;
-    cout << "--configuration <path-to-your-configuration-file> : Specify the configuration to use" << endl;
-    cout << "--gpu : Enable GPU inferences" << endl;
-    cout << "--quiet : Disable most of console outputs" << endl;
-    cout << "--source <path-to-your-source-file> : Specify a file on which running inferences, could be webcam (camera index, \"pi\" for Pi Camera), image (png, jpg or jpeg) or video (mp4 or avi)" << endl;
-    cout << "--help : print help" << endl;
-}
-
 int main(int argc, char *argv[])
 {
     string modelPath = "./models/model.onnx";
@@ -77,7 +54,7 @@ int main(int argc, char *argv[])
         }
         catch (const invalid_argument &e)
         {
-            vector<string> videos = {".mp4", ".avi"};
+            vector<string> videos = {".mp4", ".avi", ".webm"};
             for (string video : videos)
             {
                 if (endsWith(source, video))

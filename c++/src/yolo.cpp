@@ -8,19 +8,48 @@ YOLO::YOLO(string modelPath, string configurationPath, bool gpu, bool verbose)
 
     this->configuration = YAML::LoadFile(configurationPath);
 
-    static Env env(ORT_LOGGING_LEVEL_WARNING, "onnxruntime");
-
-    SessionOptions sessionOptions;
-
-    if (gpu)
+    this->modelPath = modelPath;
+    if (endsWith(this->modelPath, ".onnx"))
     {
-        OrtCUDAProviderOptions cudaOption;
-        cudaOption.device_id = 0;
-        sessionOptions.AppendExecutionProvider_CUDA(cudaOption);
+        this->inferenceEngine = "ort";
     }
-    sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    else if (endsWith(this->modelPath, ".bin"))
+    {
+        this->inferenceEngine = "ncnn";
+    }
+    else
+    {
+        cout << "Unsupported model format" << endl;
+        exit(1);
+    }
 
-    this->model = new Session(env, modelPath.c_str(), sessionOptions);
+    if (this->inferenceEngine == "ort")
+    {
+        static Env env(ORT_LOGGING_LEVEL_WARNING, "onnxruntime");
+
+        SessionOptions sessionOptions;
+
+        if (gpu)
+        {
+            OrtCUDAProviderOptions cudaOption;
+            cudaOption.device_id = 0;
+            sessionOptions.AppendExecutionProvider_CUDA(cudaOption);
+        }
+        sessionOptions.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+
+        this->ortModel = new Session(env, this->modelPath.c_str(), sessionOptions);
+    }
+    else if (this->inferenceEngine == "ncnn")
+    {
+        if (gpu)
+        {
+            this->ncnnModel.opt.use_vulkan_compute = true;
+        }
+        
+        string paramPath = this->modelPath.substr(0, this->modelPath.find_last_of(".")) + ".param";
+        this->ncnnModel.load_param(paramPath.c_str());
+        this->ncnnModel.load_model(modelPath.c_str());
+    }
 
     this->rectConfidenceThreshold = this->configuration["confidence_threshold"].as<float>();
     this->iouThreshold = this->configuration["iou_threshold"].as<float>();
@@ -36,7 +65,10 @@ YOLO::YOLO(string modelPath, string configurationPath, bool gpu, bool verbose)
 
 YOLO::~YOLO()
 {
-    delete (this->model);
+    if (this->inferenceEngine == "ort")
+    {
+        delete (this->ortModel);
+    }
 }
 
 vector<vector<Result>> YOLO::run(vector<Mat> images, bool show)
@@ -44,39 +76,76 @@ vector<vector<Result>> YOLO::run(vector<Mat> images, bool show)
     auto t0 = chrono::high_resolution_clock::now();
 
     int inputSize = this->configuration["input_size"].as<int>();
-    vector<float> preProcessedImages(images.size() * 3 * inputSize * inputSize);
-    for (int i = 0; i < images.size(); i++)
-    {
-        Mat preProcessedImage = preProcess(images[i]);
-        for (int c = 0; c < 3; c++)
-        {
-            for (int h = 0; h < inputSize; h++)
-            {
-                for (int w = 0; w < inputSize; w++)
-                {
-                    int index = i * 3 * inputSize * inputSize + c * inputSize * inputSize + h * inputSize + w;
-                    preProcessedImages[index] = static_cast<float>(preProcessedImage.at<Vec3b>(h, w)[c]) / 255.0f;
-                }
-            }
-        }
-    }
 
     auto t1 = chrono::high_resolution_clock::now();
-
     float *outputs;
     vector<int> shape;
 
-    vector<const char *> inputNodeNames = {"input"};
-    vector<const char *> outputNodeNames = {"output"};
-    vector<int64_t> inputNodeDims = {(int64_t)images.size(), 3, inputSize, inputSize};
-    MemoryInfo memoryInfo = MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
-    Value inputTensor = Value::CreateTensor<float>(memoryInfo, preProcessedImages.data(), preProcessedImages.size(), inputNodeDims.data(), inputNodeDims.size());
-    auto outputTensor = model->Run(RunOptions{nullptr}, inputNodeNames.data(), &inputTensor, inputNodeNames.size(), outputNodeNames.data(), outputNodeNames.size());
-    auto tensorInfo = outputTensor.front().GetTensorTypeAndShapeInfo();
-    vector<int64_t> tensorShape = tensorInfo.GetShape();
-    int numElements = tensorInfo.GetElementCount();
-    shape = vector<int>(begin(tensorShape), end(tensorShape));
-    outputs = outputTensor.front().GetTensorMutableData<float>();
+    if (this->inferenceEngine == "ort")
+    {
+        vector<float> preProcessedImages(images.size() * 3 * inputSize * inputSize);
+        for (int i = 0; i < images.size(); i++)
+        {
+            Mat preProcessedImage = preProcess(images[i]);
+            for (int c = 0; c < 3; c++)
+            {
+                for (int h = 0; h < inputSize; h++)
+                {
+                    for (int w = 0; w < inputSize; w++)
+                    {
+                        int index = i * 3 * inputSize * inputSize + c * inputSize * inputSize + h * inputSize + w;
+                        preProcessedImages[index] = static_cast<float>(preProcessedImage.at<Vec3b>(h, w)[c]) / 255.0f;
+                    }
+                }
+            }
+        }
+
+        t1 = chrono::high_resolution_clock::now();
+
+        vector<const char *> inputNodeNames = {"input"};
+        vector<const char *> outputNodeNames = {"output"};
+        vector<int64_t> inputNodeDims = {(int64_t)images.size(), 3, inputSize, inputSize};
+        MemoryInfo memoryInfo = MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
+        Value inputTensor = Value::CreateTensor<float>(memoryInfo, preProcessedImages.data(), preProcessedImages.size(), inputNodeDims.data(), inputNodeDims.size());
+        auto outputTensor = ortModel->Run(RunOptions{nullptr}, inputNodeNames.data(), &inputTensor, inputNodeNames.size(), outputNodeNames.data(), outputNodeNames.size());
+        auto tensorInfo = outputTensor.front().GetTensorTypeAndShapeInfo();
+        vector<int64_t> tensorShape = tensorInfo.GetShape();
+        int numElements = tensorInfo.GetElementCount();
+        shape = vector<int>(begin(tensorShape), end(tensorShape));
+        outputs = outputTensor.front().GetTensorMutableData<float>();
+    }
+    else if (this->inferenceEngine == "ncnn")
+    {
+        vector<ncnn::Mat> preProcessedImages;
+        for (Mat image : images)
+        {
+            ncnn::Mat input = ncnn::Mat::from_pixels_resize(image.data, ncnn::Mat::PIXEL_BGR, image.cols, image.rows, inputSize, inputSize);
+            const float mean_vals[3] = {0.f, 0.f, 0.f};
+            const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
+            input.substract_mean_normalize(mean_vals, norm_vals);
+            preProcessedImages.push_back(input);
+        }
+
+        t1 = chrono::high_resolution_clock::now();
+
+        vector<float> output;
+        for (int i = 0; i < preProcessedImages.size(); i++)
+        {
+            ncnn::Extractor extractor = this->ncnnModel.create_extractor();
+            extractor.input("input", preProcessedImages[i]);
+            ncnn::Mat ncnnOutput;
+            extractor.extract("output", ncnnOutput);
+            if (i == 0)
+            {
+                shape = {(int)images.size(), ncnnOutput.c, ncnnOutput.h, ncnnOutput.w};
+            }
+
+            vector<float> vec(ncnnOutput.c * ncnnOutput.h * ncnnOutput.w);
+            vec.assign((float *)ncnnOutput.data, (float *)ncnnOutput.data + ncnnOutput.c * ncnnOutput.h * ncnnOutput.w);
+            output.insert(output.end(), vec.begin(), vec.end());
+        }
+        outputs = output.data();
+    }
 
     auto t2 = chrono::high_resolution_clock::now();
 
@@ -387,4 +456,27 @@ void YOLO::printStats()
     averageFps /= this->fpsList.size();
     cout
         << "Average times:\nPre-processing: " << averagePreProcessingTime << " ms\t| Inference: " << averageInferenceTime << " ms\t| Post-processing: " << averagePostProcessingTime << " ms\t| FPS: " << averageFps << endl;
+}
+
+bool endsWith(string str, string ending)
+{
+    if (str.length() >= ending.length())
+    {
+        return (str.compare(str.length() - ending.length(), ending.length(), ending) == 0);
+    }
+    else
+    {
+        return false;
+    }
+}
+
+void printHelp()
+{
+    cout << "Usage:" << endl;
+    cout << "--model <path-to-your-onnx-model> : Specify the model to use" << endl;
+    cout << "--configuration <path-to-your-configuration-file> : Specify the configuration to use" << endl;
+    cout << "--gpu : Enable GPU inferences" << endl;
+    cout << "--quiet : Disable most of console outputs" << endl;
+    cout << "--source <path-to-your-source-file> : Specify a file on which running inferences, could be webcam (camera index, \"pi\" for Pi Camera), image (png, jpg or jpeg) or video (mp4 or avi)" << endl;
+    cout << "--help : print help" << endl;
 }
