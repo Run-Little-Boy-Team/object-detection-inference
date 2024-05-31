@@ -21,7 +21,7 @@ conda create -y -n rlb_inference
 conda activate rlb_inference
 conda install -y python=3.10
 pip install pyqt5 opengl
-pip install numpy opencv-python pyyaml picamera2
+pip install numpy opencv-python pyyaml picamera2 ncnn
 
 if [ "$1" == "gpu" ] && [ "$arch" == "x64" ]; then
     echo "GPU support enabled"

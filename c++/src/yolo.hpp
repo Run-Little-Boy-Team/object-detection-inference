@@ -53,7 +53,7 @@ public:
     vector<vector<Result>> run(vector<Mat> images, bool show);
     vector<vector<Result>> run(vector<string> paths, bool show);
     void showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps);
-    void stream(string video, int webcam);
+    void stream(string video, int webcam, bool show);
 };
 
 bool endsWith(string str, string ending);

@@ -6,7 +6,11 @@ import sys
 import math
 import yaml
 import onnxruntime as ort
-import picamera2
+
+try:
+    import picamera2
+except ImportError:
+    pass
 
 
 class Result:
@@ -249,7 +253,7 @@ class YOLO:
         if self.verbose:
             print(f"Drawing: {drawing_time:.2f} ms")
 
-    def stream(self, source: int | str) -> None:
+    def stream(self, source: int | str, show: bool) -> None:
         if source == "pi":
             camera = picamera2.PiCamera2()
             camera.start_preview()
@@ -270,7 +274,7 @@ class YOLO:
                 if not ret:
                     break
 
-            self.run([frame], True)
+            self.run([frame], show)
 
             c = cv2.waitKey(1)
             if c == 27:
@@ -311,6 +315,7 @@ def print_help() -> None:
         ' inferences, could be webcam (camera index, "pi" for Pi Camera), image (png, jpg or jpeg) or'
         " video (mp4 or avi)"
     )
+    print("--hide : Disable showing detections")
     print("--help : print help")
 
 
@@ -320,6 +325,7 @@ if __name__ == "__main__":
     gpu = False
     verbose = True
     source = 0
+    show = True
     args = sys.argv
     if len(args) < 2:
         print_help()
@@ -342,24 +348,26 @@ if __name__ == "__main__":
         elif arg == "--source":
             source = args[i + 1]
             skip = True
+        elif arg == "--hide":
+            show = False
         elif args[i] == "--help":
             print_help()
             exit(0)
     yolo: YOLO = YOLO(model_path, configuration_path, gpu, verbose)
     if source == "pi":
-        yolo.stream(source)
+        yolo.stream(source, show)
     else:
         try:
             webcam = int(source)
-            yolo.stream(webcam)
+            yolo.stream(webcam, show)
         except ValueError:
-            videos = [".mp4", ".avi"]
+            videos = [".mp4", ".avi", ".webm"]
             for video in videos:
                 if source.endswith(video):
-                    yolo.stream(source)
+                    yolo.stream(source, show)
                     exit(0)
             images = [".jpg", ".jpeg", ".png"]
             for image in images:
                 if source.endswith(image):
-                    yolo.run([source], True)
+                    yolo.run([source], show)
                     exit(0)

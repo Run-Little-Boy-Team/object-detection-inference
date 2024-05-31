@@ -357,7 +357,7 @@ void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images
     }
 }
 
-void YOLO::stream(string video, int webcam)
+void YOLO::stream(string video, int webcam, bool show)
 {
     VideoCapture cap;
 #ifdef LIBCAMERA_FOUND
@@ -415,7 +415,7 @@ void YOLO::stream(string video, int webcam)
 
         vector<Mat> input;
         input.push_back(frame);
-        vector<vector<Result>> resultsList = run(input, true);
+        vector<vector<Result>> resultsList = run(input, show);
 
         char c = (char)waitKey(1);
         if (c == 27)
@@ -478,5 +478,6 @@ void printHelp()
     cout << "--gpu : Enable GPU inferences" << endl;
     cout << "--quiet : Disable most of console outputs" << endl;
     cout << "--source <path-to-your-source-file> : Specify a file on which running inferences, could be webcam (camera index, \"pi\" for Pi Camera), image (png, jpg or jpeg) or video (mp4 or avi)" << endl;
+    cout << "--hide : Disable showing detections" << endl;
     cout << "--help : print help" << endl;
 }

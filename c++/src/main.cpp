@@ -7,6 +7,7 @@ int main(int argc, char *argv[])
     bool gpu = false;
     bool verbose = true;
     string source = "0";
+    bool show = true;
     if (argc < 2)
     {
         printHelp();
@@ -34,6 +35,10 @@ int main(int argc, char *argv[])
         {
             source = argv[++i];
         }
+        else if (strcmp(argv[i], "--hide") == 0)
+        {
+            show = false;
+        }
         else if (strcmp(argv[i], "--help") == 0)
         {
             printHelp();
@@ -43,14 +48,14 @@ int main(int argc, char *argv[])
     YOLO yolo(modelPath, configurationPath, gpu, verbose);
     if (source == "pi")
     {
-        yolo.stream(source, -1);
+        yolo.stream(source, -1, show);
     }
     else
     {
         try
         {
             int webcam = stoi(source);
-            yolo.stream("", webcam);
+            yolo.stream("", webcam, show);
         }
         catch (const invalid_argument &e)
         {
@@ -59,7 +64,7 @@ int main(int argc, char *argv[])
             {
                 if (endsWith(source, video))
                 {
-                    yolo.stream(source, -1);
+                    yolo.stream(source, -1, show);
                     return 0;
                 }
             }
@@ -69,7 +74,7 @@ int main(int argc, char *argv[])
                 if (endsWith(source, image))
                 {
                     vector<string> input = {source};
-                    yolo.run(vector<string>(input), true);
+                    yolo.run(vector<string>(input), show);
                     return 0;
                 }
             }
