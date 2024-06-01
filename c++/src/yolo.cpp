@@ -45,7 +45,7 @@ YOLO::YOLO(string modelPath, string configurationPath, bool gpu, bool verbose)
         {
             this->ncnnModel.opt.use_vulkan_compute = true;
         }
-        
+
         string paramPath = this->modelPath.substr(0, this->modelPath.find_last_of(".")) + ".param";
         this->ncnnModel.load_param(paramPath.c_str());
         this->ncnnModel.load_model(modelPath.c_str());
@@ -77,36 +77,32 @@ vector<vector<Result>> YOLO::run(vector<Mat> images, bool show)
 
     int inputSize = this->configuration["input_size"].as<int>();
 
+    vector<ncnn::Mat> preProcessedImages;
+    for (Mat image : images)
+    {
+        ncnn::Mat input = preProcess(image);
+        preProcessedImages.push_back(input);
+    }
+
     auto t1 = chrono::high_resolution_clock::now();
+
     float *outputs;
     vector<int> shape;
 
     if (this->inferenceEngine == "ort")
     {
-        vector<float> preProcessedImages(images.size() * 3 * inputSize * inputSize);
-        for (int i = 0; i < images.size(); i++)
+        vector<float> input(images.size() * 3 * inputSize * inputSize);
+        int size = 3 * inputSize * inputSize;
+        for (int i = 0; i < preProcessedImages.size(); i++)
         {
-            Mat preProcessedImage = preProcess(images[i]);
-            for (int c = 0; c < 3; c++)
-            {
-                for (int h = 0; h < inputSize; h++)
-                {
-                    for (int w = 0; w < inputSize; w++)
-                    {
-                        int index = i * 3 * inputSize * inputSize + c * inputSize * inputSize + h * inputSize + w;
-                        preProcessedImages[index] = static_cast<float>(preProcessedImage.at<Vec3b>(h, w)[c]) / 255.0f;
-                    }
-                }
-            }
+            input.insert(input.begin() + i * size, (float *)preProcessedImages[i].data, (float *)preProcessedImages[i].data + size);
         }
-
-        t1 = chrono::high_resolution_clock::now();
 
         vector<const char *> inputNodeNames = {"input"};
         vector<const char *> outputNodeNames = {"output"};
         vector<int64_t> inputNodeDims = {(int64_t)images.size(), 3, inputSize, inputSize};
         MemoryInfo memoryInfo = MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemType::OrtMemTypeDefault);
-        Value inputTensor = Value::CreateTensor<float>(memoryInfo, preProcessedImages.data(), preProcessedImages.size(), inputNodeDims.data(), inputNodeDims.size());
+        Value inputTensor = Value::CreateTensor<float>(memoryInfo, input.data(), input.size(), inputNodeDims.data(), inputNodeDims.size());
         auto outputTensor = ortModel->Run(RunOptions{nullptr}, inputNodeNames.data(), &inputTensor, inputNodeNames.size(), outputNodeNames.data(), outputNodeNames.size());
         auto tensorInfo = outputTensor.front().GetTensorTypeAndShapeInfo();
         vector<int64_t> tensorShape = tensorInfo.GetShape();
@@ -116,18 +112,6 @@ vector<vector<Result>> YOLO::run(vector<Mat> images, bool show)
     }
     else if (this->inferenceEngine == "ncnn")
     {
-        vector<ncnn::Mat> preProcessedImages;
-        for (Mat image : images)
-        {
-            ncnn::Mat input = ncnn::Mat::from_pixels_resize(image.data, ncnn::Mat::PIXEL_BGR, image.cols, image.rows, inputSize, inputSize);
-            const float mean_vals[3] = {0.f, 0.f, 0.f};
-            const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
-            input.substract_mean_normalize(mean_vals, norm_vals);
-            preProcessedImages.push_back(input);
-        }
-
-        t1 = chrono::high_resolution_clock::now();
-
         vector<float> output;
         for (int i = 0; i < preProcessedImages.size(); i++)
         {
@@ -210,20 +194,13 @@ vector<vector<Result>> YOLO::run(vector<string> paths, bool show)
     return resultsList;
 }
 
-Mat YOLO::preProcess(Mat image)
+ncnn::Mat YOLO::preProcess(Mat image)
 {
-    Mat processed = image.clone();
-    if (processed.channels() == 3)
-    {
-        cvtColor(processed, processed, COLOR_BGR2RGB);
-    }
-    else
-    {
-        cvtColor(processed, processed, COLOR_GRAY2RGB);
-    }
-
     int inputSize = this->configuration["input_size"].as<int>();
-    resize(processed, processed, Size(inputSize, inputSize));
+    ncnn::Mat processed = ncnn::Mat::from_pixels_resize(image.data, ncnn::Mat::PIXEL_BGR, image.cols, image.rows, inputSize, inputSize);
+    const float mean_vals[3] = {0.f, 0.f, 0.f};
+    const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
+    processed.substract_mean_normalize(mean_vals, norm_vals);
     return processed;
 }
 

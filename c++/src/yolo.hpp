@@ -44,7 +44,7 @@ private:
     vector<float> inferenceTimeList;
     vector<float> postProcessingTimeList;
     vector<float> fpsList;
-    Mat preProcess(Mat image);
+    ncnn::Mat preProcess(Mat image);
     vector<vector<Result>> postProcess(float *outputs, vector<int> shape);
     void printStats();
 
