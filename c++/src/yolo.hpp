@@ -27,6 +27,7 @@ typedef struct
     int classId;
     float confidence;
     Rect box;
+    int trackId = -1;
 } Result;
 
 class YOLO
@@ -40,12 +41,14 @@ private:
     float rectConfidenceThreshold;
     float iouThreshold;
     bool verbose;
+    vector<vector<Result>> trackingsList;
+    vector<int> trackingCounterList;
     vector<float> preProcessingTimeList;
     vector<float> inferenceTimeList;
     vector<float> postProcessingTimeList;
     vector<float> fpsList;
     ncnn::Mat preProcess(Mat image);
-    vector<vector<Result>> postProcess(float *outputs, vector<int> shape);
+    vector<vector<Result>> postProcess(float *outputs, vector<int> shape, vector<Mat> images);
     void printStats();
 
 public:
@@ -53,6 +56,7 @@ public:
     ~YOLO();
     vector<vector<Result>> run(vector<Mat> images, bool show);
     vector<vector<Result>> run(vector<string> paths, bool show);
+    void tracking(vector<vector<Result>> &resultsList);
     void showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps);
     void stream(string video, int webcam, bool show);
 };

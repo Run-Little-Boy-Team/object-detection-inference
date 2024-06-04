@@ -51,6 +51,9 @@ YOLO::YOLO(string modelPath, string configurationPath, bool gpu, bool verbose)
         this->ncnnModel.load_model(modelPath.c_str());
     }
 
+    this->trackingCounterList = vector<int>();
+    this->trackingsList = vector<vector<Result>>();
+
     this->rectConfidenceThreshold = this->configuration["confidence_threshold"].as<float>();
     this->iouThreshold = this->configuration["iou_threshold"].as<float>();
     this->verbose = verbose;
@@ -133,7 +136,7 @@ vector<vector<Result>> YOLO::run(vector<Mat> images, bool show)
 
     auto t2 = chrono::high_resolution_clock::now();
 
-    vector<vector<Result>> resultsList = postProcess(outputs, shape);
+    vector<vector<Result>> resultsList = postProcess(outputs, shape, images);
 
     auto t3 = chrono::high_resolution_clock::now();
     float preProcessingTime = chrono::duration<float, milli>(t1 - t0).count();
@@ -204,7 +207,7 @@ ncnn::Mat YOLO::preProcess(Mat image)
     return processed;
 }
 
-vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape)
+vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape, vector<Mat> images)
 {
     vector<vector<Result>> resultsList;
 
@@ -241,10 +244,10 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape)
                     float w = 1 / (1 + exp(-outputs[(b * shape[1] * shape[2] * shape[3]) + (3 * shape[2] * shape[3]) + (i * shape[3]) + j]));
                     float h = 1 / (1 + exp(-outputs[(b * shape[1] * shape[2] * shape[3]) + (4 * shape[2] * shape[3]) + (i * shape[3]) + j]));
 
-                    x *= 100;
-                    y *= 100;
-                    w *= 100;
-                    h *= 100;
+                    x *= images[b].cols;
+                    y *= images[b].rows;
+                    w *= images[b].cols;
+                    h *= images[b].rows;
 
                     float top_left_x = x - 0.5 * w;
                     float top_left_y = y - 0.5 * h;
@@ -267,7 +270,132 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape)
         }
         resultsList.push_back(results);
     }
+    this->tracking(resultsList);
     return resultsList;
+}
+
+void YOLO::tracking(vector<vector<Result>> &resultsList)
+{
+
+    for (int i = 0; i < resultsList.size(); i++)
+    {
+        if (this->trackingCounterList.size() <= i)
+        {
+            this->trackingCounterList.push_back(-1);
+            this->trackingsList.push_back(vector<Result>());
+        }
+
+        for (int j = 0; j < resultsList[i].size(); j++)
+        {
+            if (this->trackingsList[i].size() <= j)
+            {
+                resultsList[i][j].trackId = ++this->trackingCounterList[i];
+                this->trackingsList[i].push_back(resultsList[i][j]);
+            }
+            else
+            {
+                // double minDistance = 1000000;
+                // int minIndex = -1;
+                // for (int k = 0; k < this->trackingsList[i].size(); k++)
+                // {
+                //     if (resultsList[i][j].classId != this->trackingsList[i][k].classId)
+                //     {
+                //         continue;
+                //     }
+                //     double distance = sqrt(pow(resultsList[i][j].box.x - this->trackingsList[i][k].box.x, 2) + pow(resultsList[i][j].box.y - this->trackingsList[i][k].box.y, 2));
+                //     if (distance < minDistance)
+                //     {
+                //         minDistance = distance;
+                //         minIndex = k;
+                //     }
+                // }
+                // if (minDistance < 50)
+                // {
+                //     resultsList[i][j].trackId = this->trackingsList[i][minIndex].trackId;
+                //     this->trackingsList[i][minIndex] = resultsList[i][j];
+                // }
+                // else
+                // {
+                //     resultsList[i][j].trackId = ++this->trackingCounterList[i];
+                //     this->trackingsList[i].push_back(resultsList[i][j]);
+                // }
+
+                double maxIou = 0;
+                double maxIndex = -1;
+                for (int k = 0; k < this->trackingsList[i].size(); k++)
+                {
+                    if (resultsList[i][j].classId != this->trackingsList[i][k].classId)
+                    {
+                        continue;
+                    }
+
+                    double x1 = std::max(resultsList[i][j].box.x, trackingsList[i][k].box.x);
+                    double y1 = std::max(resultsList[i][j].box.y, trackingsList[i][k].box.y);
+                    double x2 = std::min(resultsList[i][j].box.x + resultsList[i][j].box.width, trackingsList[i][k].box.x + trackingsList[i][k].box.width);
+                    double y2 = std::min(resultsList[i][j].box.y + resultsList[i][j].box.height, trackingsList[i][k].box.y + trackingsList[i][k].box.height);
+
+                    double intersectionArea = std::max(0.0, x2 - x1) * std::max(0.0, y2 - y1);
+                    double unionArea = resultsList[i][j].box.width * resultsList[i][j].box.height + trackingsList[i][k].box.width * trackingsList[i][k].box.height - intersectionArea;
+
+                    double iou = intersectionArea / unionArea;
+                    if (iou > maxIou)
+                    {
+                        maxIou = iou;
+                        maxIndex = k;
+                    }
+                }
+                if (maxIou > 0.5)
+                {
+                    resultsList[i][j].trackId = this->trackingsList[i][maxIndex].trackId;
+                    this->trackingsList[i][maxIndex] = resultsList[i][j];
+                }
+                else
+                {
+                    resultsList[i][j].trackId = ++this->trackingCounterList[i];
+                    this->trackingsList[i].push_back(resultsList[i][j]);
+                }
+
+                // double maxSimilarity = 0;
+                // double maxIndex = -1;
+                // for (int k = 0; k < this->trackingsList[i].size(); k++)
+                // {
+                //     if (resultsList[i][j].classId != this->trackingsList[i][k].classId)
+                //     {
+                //         continue;
+                //     }
+
+                //     double x1 = std::max(resultsList[i][j].box.x, trackingsList[i][k].box.x);
+                //     double y1 = std::max(resultsList[i][j].box.y, trackingsList[i][k].box.y);
+                //     double x2 = std::min(resultsList[i][j].box.x + resultsList[i][j].box.width, trackingsList[i][k].box.x + trackingsList[i][k].box.width);
+                //     double y2 = std::min(resultsList[i][j].box.y + resultsList[i][j].box.height, trackingsList[i][k].box.y + trackingsList[i][k].box.height);
+
+                //     double intersectionArea = std::max(0.0, x2 - x1) * std::max(0.0, y2 - y1);
+                //     double unionArea = resultsList[i][j].box.width * resultsList[i][j].box.height + trackingsList[i][k].box.width * trackingsList[i][k].box.height - intersectionArea;
+
+                //     double iou = intersectionArea / unionArea;
+
+                //     double distance = sqrt(pow(resultsList[i][j].box.x - this->trackingsList[i][k].box.x, 2) + pow(resultsList[i][j].box.y - this->trackingsList[i][k].box.y, 2));
+
+                //     double similarity = iou * (1 / distance);
+                //     if (similarity > maxSimilarity)
+                //     {
+                //         maxSimilarity = similarity;
+                //         maxIndex = k;
+                //     }
+                // }
+                // if (maxSimilarity > 0.01)
+                // {
+                //     resultsList[i][j].trackId = this->trackingsList[i][maxIndex].trackId;
+                //     this->trackingsList[i][maxIndex] = resultsList[i][j];
+                // }
+                // else
+                // {
+                //     resultsList[i][j].trackId = ++this->trackingCounterList[i];
+                //     this->trackingsList[i].push_back(resultsList[i][j]);
+                // }
+            }
+        }
+    }
 }
 
 void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps)
@@ -280,18 +408,13 @@ void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images
         for (int j = 0; j < resultsList[i].size(); j++)
         {
             Result result = resultsList[i][j];
-            result.box.x = (int)(result.box.x * image.cols / 100);
-            result.box.y = (int)(result.box.y * image.rows / 100);
-            result.box.width = (int)(result.box.width * image.cols / 100);
-            result.box.height = (int)(result.box.height * image.rows / 100);
             RNG rng(getTickCount());
             Scalar color(rng.uniform(0, 256), rng.uniform(0, 256), rng.uniform(0, 256));
 
             rectangle(image, result.box, color, 3);
 
             float confidence = floor(100 * result.confidence) / 100;
-            string label = this->configuration["classes"].as<vector<string>>()[result.classId] + " " +
-                           to_string(confidence).substr(0, to_string(confidence).size() - 4);
+            string label = this->configuration["classes"].as<vector<string>>()[result.classId] + " " + to_string(result.trackId) + " " + to_string(confidence).substr(0, to_string(confidence).size() - 4);
 
             rectangle(
                 image,

@@ -1,3 +1,4 @@
+.vscode
 *.pyc
 c++/build
 c++/main
