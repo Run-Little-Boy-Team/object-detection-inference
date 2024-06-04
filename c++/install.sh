@@ -2,6 +2,8 @@
 
 version="1.18.0"
 
+n=$(nproc)
+
 arch=$(uname -m)
 if [ "$arch" == "x86_64" ]; then
     arch="x64"
@@ -48,7 +50,7 @@ echo "Compiling $name"
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=ON ..
-make -j4
+make -j$n
 echo "Installing $name"
 make install
 sudo cp -rf ./install/* /usr/local/
@@ -64,7 +66,7 @@ echo "Compiling $name"
 mkdir build
 cd build
 cmake ..
-make -j4
+make -j$n
 echo "Installing $name"
 sudo make install
 cd ../..
