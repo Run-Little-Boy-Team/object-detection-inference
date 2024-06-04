@@ -1,6 +1,8 @@
 # Run RLB object detection
 Running RLB object detection model in Python or C++.
 
+Note: the Python version is missing some functionalities that the C++ version have.
+
 ## Installation
 
 ### Python
