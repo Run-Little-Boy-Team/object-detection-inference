@@ -200,7 +200,7 @@ vector<vector<Result>> YOLO::run(vector<string> paths, bool show)
 ncnn::Mat YOLO::preProcess(Mat image)
 {
     int inputSize = this->configuration["input_size"].as<int>();
-    ncnn::Mat processed = ncnn::Mat::from_pixels_resize(image.data, ncnn::Mat::PIXEL_BGR, image.cols, image.rows, inputSize, inputSize);
+    ncnn::Mat processed = ncnn::Mat::from_pixels_resize(image.data, ncnn::Mat::PIXEL_BGR2RGB, image.cols, image.rows, inputSize, inputSize);
     const float mean_vals[3] = {0.f, 0.f, 0.f};
     const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
     processed.substract_mean_normalize(mean_vals, norm_vals);
