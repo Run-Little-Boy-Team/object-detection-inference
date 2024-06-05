@@ -28,6 +28,7 @@ typedef struct
     float confidence;
     Rect box;
     int trackId = -1;
+    bool liveness = false;
 } Result;
 
 class YOLO
@@ -57,6 +58,7 @@ public:
     vector<vector<Result>> run(vector<Mat> images, bool show);
     vector<vector<Result>> run(vector<string> paths, bool show);
     void tracking(vector<vector<Result>> &resultsList);
+    void liveness(vector<vector<Result>> &resultsList, vector<Mat> images);
     void showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps);
     void stream(string video, int webcam, bool show);
 };

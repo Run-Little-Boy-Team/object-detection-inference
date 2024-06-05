@@ -270,6 +270,7 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape, vect
         }
         resultsList.push_back(results);
     }
+    // this->liveness(resultsList, images);
     this->tracking(resultsList);
     return resultsList;
 }
@@ -398,6 +399,114 @@ void YOLO::tracking(vector<vector<Result>> &resultsList)
     }
 }
 
+void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
+{
+    for (int i = 0; i < resultsList.size(); i++)
+    {
+        // Mat output;
+        // Mat lab;
+        // cvtColor(images[i], lab, COLOR_BGR2Lab);
+        // Mat a_channel, b_channel;
+        // extractChannel(lab, a_channel, 1);
+        // extractChannel(lab, b_channel, 2);
+        // Mat a_thresh;
+        // threshold(a_channel, a_thresh, 100, 255, THRESH_BINARY + THRESH_OTSU);
+        // Mat b_thresh;
+        // threshold(b_channel, b_thresh, 150, 255, THRESH_BINARY_INV + THRESH_OTSU);
+        // Mat mask;
+        // bitwise_and(a_thresh, b_thresh, mask);
+        // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
+        // cv::erode(mask, mask, kernel, cv::Point(-1, -1), 5);
+        // imshow("mask", mask);
+        Mat masked;
+        inRange(images[i], Scalar(232, 232, 232), Scalar(255, 255, 255), masked);
+        Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
+        Mat eroded;
+        erode(masked, eroded, kernel, Point(-1, -1), 1);
+        vector<vector<Point>> contours;
+        findContours(eroded, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
+        imshow("eroded", eroded);
+
+        int rCount = 0;
+        int gCount = 0;
+        int bCount = 0;
+
+        for (vector<Point> contour : contours)
+        {
+            Moments m = moments(contour);
+            if (m.m00 == 0)
+            {
+                continue;
+            }
+            int cx = int(m.m10 / m.m00);
+            int cy = int(m.m01 / m.m00);
+
+            int higherRCount = 0;
+            int higherGCount = 0;
+            int higherBCount = 0;
+
+            int range = 8;
+
+            for (int i = cy - range; i < cy + range; i++)
+            {
+                for (int j = cx - range; j < cx + range; j++)
+                {
+                    Vec3b pixel = images[i].at<Vec3b>(i, j);
+                    int b = pixel[0];
+                    int g = pixel[1];
+                    int r = pixel[2];
+
+                    if (b >= g && b >= r)
+                    {
+                        bCount++;
+                    }
+                    else if (g >= b && g >= r)
+                    {
+                        gCount++;
+                    }
+                    else
+                    {
+                        rCount++;
+                    }
+                }
+            }
+
+            if (higherBCount >= higherGCount && higherBCount >= higherRCount)
+            {
+                bCount++;
+                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(255, 0, 0), 3);
+            }
+            else if (higherGCount >= higherBCount && higherGCount >= higherRCount)
+            {
+                gCount++;
+                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
+            }
+            else
+            {
+                rCount++;
+                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 0, 255), 3);
+            }
+        }
+        imshow("liveness", images[i]);
+
+        continue;
+
+        for (int j = 0; j < resultsList[i].size(); j++)
+        {
+            if (resultsList[i][j].classId != 0)
+            {
+                continue;
+            }
+            Rect bounded = resultsList[i][j].box;
+            bounded.x = max(0, resultsList[i][j].box.x);
+            bounded.y = max(0, resultsList[i][j].box.y);
+            bounded.width = min(resultsList[i][j].box.width, images[i].cols - bounded.x);
+            bounded.height = min(resultsList[i][j].box.height, images[i].rows - bounded.y);
+            Mat object = images[i](bounded);
+        }
+    }
+}
+
 void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps)
 {
     auto t0 = chrono::high_resolution_clock::now();
@@ -415,6 +524,10 @@ void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images
 
             float confidence = floor(100 * result.confidence) / 100;
             string label = this->configuration["classes"].as<vector<string>>()[result.classId] + " " + to_string(result.trackId) + " " + to_string(confidence).substr(0, to_string(confidence).size() - 4);
+            if (result.liveness)
+            {
+                label += " alive";
+            }
 
             rectangle(
                 image,
