@@ -51,6 +51,7 @@ YOLO::YOLO(string modelPath, string configurationPath, bool gpu, bool verbose)
         this->ncnnModel.load_model(modelPath.c_str());
     }
 
+    this->robotId = 80;
     this->trackingCounterList = vector<int>();
     this->trackingsList = vector<vector<Result>>();
 
@@ -270,14 +271,13 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape, vect
         }
         resultsList.push_back(results);
     }
-    // this->liveness(resultsList, images);
+    this->liveness(resultsList, images);
     this->tracking(resultsList);
     return resultsList;
 }
 
 void YOLO::tracking(vector<vector<Result>> &resultsList)
 {
-
     for (int i = 0; i < resultsList.size(); i++)
     {
         if (this->trackingCounterList.size() <= i)
@@ -288,6 +288,10 @@ void YOLO::tracking(vector<vector<Result>> &resultsList)
 
         for (int j = 0; j < resultsList[i].size(); j++)
         {
+            if (resultsList[i][j].classId != this->robotId)
+            {
+                continue;
+            }
             if (this->trackingsList[i].size() <= j)
             {
                 resultsList[i][j].trackId = ++this->trackingCounterList[i];
@@ -355,45 +359,6 @@ void YOLO::tracking(vector<vector<Result>> &resultsList)
                     resultsList[i][j].trackId = ++this->trackingCounterList[i];
                     this->trackingsList[i].push_back(resultsList[i][j]);
                 }
-
-                // double maxSimilarity = 0;
-                // double maxIndex = -1;
-                // for (int k = 0; k < this->trackingsList[i].size(); k++)
-                // {
-                //     if (resultsList[i][j].classId != this->trackingsList[i][k].classId)
-                //     {
-                //         continue;
-                //     }
-
-                //     double x1 = std::max(resultsList[i][j].box.x, trackingsList[i][k].box.x);
-                //     double y1 = std::max(resultsList[i][j].box.y, trackingsList[i][k].box.y);
-                //     double x2 = std::min(resultsList[i][j].box.x + resultsList[i][j].box.width, trackingsList[i][k].box.x + trackingsList[i][k].box.width);
-                //     double y2 = std::min(resultsList[i][j].box.y + resultsList[i][j].box.height, trackingsList[i][k].box.y + trackingsList[i][k].box.height);
-
-                //     double intersectionArea = std::max(0.0, x2 - x1) * std::max(0.0, y2 - y1);
-                //     double unionArea = resultsList[i][j].box.width * resultsList[i][j].box.height + trackingsList[i][k].box.width * trackingsList[i][k].box.height - intersectionArea;
-
-                //     double iou = intersectionArea / unionArea;
-
-                //     double distance = sqrt(pow(resultsList[i][j].box.x - this->trackingsList[i][k].box.x, 2) + pow(resultsList[i][j].box.y - this->trackingsList[i][k].box.y, 2));
-
-                //     double similarity = iou * (1 / distance);
-                //     if (similarity > maxSimilarity)
-                //     {
-                //         maxSimilarity = similarity;
-                //         maxIndex = k;
-                //     }
-                // }
-                // if (maxSimilarity > 0.01)
-                // {
-                //     resultsList[i][j].trackId = this->trackingsList[i][maxIndex].trackId;
-                //     this->trackingsList[i][maxIndex] = resultsList[i][j];
-                // }
-                // else
-                // {
-                //     resultsList[i][j].trackId = ++this->trackingCounterList[i];
-                //     this->trackingsList[i].push_back(resultsList[i][j]);
-                // }
             }
         }
     }
@@ -401,36 +366,20 @@ void YOLO::tracking(vector<vector<Result>> &resultsList)
 
 void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
 {
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
+    Scalar minColor = Scalar(232, 232, 232);
+    Scalar maxColor = Scalar(255, 255, 255);
+    int colorDominanceThreshold = 50;
+    int range = 8;
     for (int i = 0; i < resultsList.size(); i++)
     {
-        // Mat output;
-        // Mat lab;
-        // cvtColor(images[i], lab, COLOR_BGR2Lab);
-        // Mat a_channel, b_channel;
-        // extractChannel(lab, a_channel, 1);
-        // extractChannel(lab, b_channel, 2);
-        // Mat a_thresh;
-        // threshold(a_channel, a_thresh, 100, 255, THRESH_BINARY + THRESH_OTSU);
-        // Mat b_thresh;
-        // threshold(b_channel, b_thresh, 150, 255, THRESH_BINARY_INV + THRESH_OTSU);
-        // Mat mask;
-        // bitwise_and(a_thresh, b_thresh, mask);
-        // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3));
-        // cv::erode(mask, mask, kernel, cv::Point(-1, -1), 5);
-        // imshow("mask", mask);
         Mat masked;
-        inRange(images[i], Scalar(232, 232, 232), Scalar(255, 255, 255), masked);
-        Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
         Mat eroded;
-        erode(masked, eroded, kernel, Point(-1, -1), 1);
         vector<vector<Point>> contours;
+        inRange(images[i], minColor, maxColor, masked);
+        erode(masked, eroded, kernel, Point(-1, -1), 1);
         findContours(eroded, contours, RETR_TREE, CHAIN_APPROX_SIMPLE);
-        imshow("eroded", eroded);
-
-        int rCount = 0;
-        int gCount = 0;
-        int bCount = 0;
-
+        vector<Point> greenLEDs = vector<Point>();
         for (vector<Point> contour : contours)
         {
             Moments m = moments(contour);
@@ -441,68 +390,66 @@ void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
             int cx = int(m.m10 / m.m00);
             int cy = int(m.m01 / m.m00);
 
-            int higherRCount = 0;
-            int higherGCount = 0;
-            int higherBCount = 0;
+            int rCount = 0;
+            int gCount = 0;
+            int bCount = 0;
 
-            int range = 8;
-
-            for (int i = cy - range; i < cy + range; i++)
+            for (int j = max(0, cy - range); j < min(images[i].cols, cy + range); j++)
             {
-                for (int j = cx - range; j < cx + range; j++)
+                for (int k = max(0, cx - range); k < min(images[i].rows, cx + range); k++)
                 {
-                    Vec3b pixel = images[i].at<Vec3b>(i, j);
+                    Vec3b pixel = images[i].at<Vec3b>(j, k);
                     int b = pixel[0];
                     int g = pixel[1];
                     int r = pixel[2];
 
-                    if (b >= g && b >= r)
+                    if (r >= g + colorDominanceThreshold && r >= b + colorDominanceThreshold)
                     {
-                        bCount++;
+                        rCount++;
                     }
-                    else if (g >= b && g >= r)
+                    else if (g >= r + colorDominanceThreshold && g >= b + colorDominanceThreshold)
                     {
                         gCount++;
                     }
-                    else
+                    else if (b >= r + colorDominanceThreshold && b >= g + colorDominanceThreshold)
                     {
-                        rCount++;
+                        bCount++;
                     }
                 }
             }
 
-            if (higherBCount >= higherGCount && higherBCount >= higherRCount)
-            {
-                bCount++;
-                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(255, 0, 0), 3);
-            }
-            else if (higherGCount >= higherBCount && higherGCount >= higherRCount)
-            {
-                gCount++;
-                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
-            }
-            else
-            {
-                rCount++;
-                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 0, 255), 3);
-            }
-        }
-        imshow("liveness", images[i]);
-
-        continue;
-
-        for (int j = 0; j < resultsList[i].size(); j++)
-        {
-            if (resultsList[i][j].classId != 0)
+            if (bCount + gCount + rCount == 0)
             {
                 continue;
             }
-            Rect bounded = resultsList[i][j].box;
-            bounded.x = max(0, resultsList[i][j].box.x);
-            bounded.y = max(0, resultsList[i][j].box.y);
-            bounded.width = min(resultsList[i][j].box.width, images[i].cols - bounded.x);
-            bounded.height = min(resultsList[i][j].box.height, images[i].rows - bounded.y);
-            Mat object = images[i](bounded);
+
+            if (gCount > bCount && gCount > rCount)
+            {
+                // rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
+                greenLEDs.push_back(Point(cx, cy));
+            }
+        }
+        for (int j = 0; j < resultsList[i].size(); j++)
+        {
+            if (resultsList[i][j].classId != this->robotId)
+            {
+                continue;
+            }
+            bool found = false;
+            for (int k = 0; k < greenLEDs.size(); k++)
+            {
+                if (resultsList[i][j].box.contains(greenLEDs[k]))
+                {
+                    resultsList[i][j].liveness = true;
+                    greenLEDs.erase(greenLEDs.begin() + k);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                resultsList[i][j].liveness = false;
+            }
         }
     }
 }
@@ -523,7 +470,12 @@ void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images
             rectangle(image, result.box, color, 3);
 
             float confidence = floor(100 * result.confidence) / 100;
-            string label = this->configuration["classes"].as<vector<string>>()[result.classId] + " " + to_string(result.trackId) + " " + to_string(confidence).substr(0, to_string(confidence).size() - 4);
+            string label = this->configuration["classes"].as<vector<string>>()[result.classId];
+            if (result.trackId != -1)
+            {
+                label += " " + to_string(result.trackId);
+            }
+            label += " " + to_string(confidence).substr(0, to_string(confidence).size() - 4);
             if (result.liveness)
             {
                 label += " alive";

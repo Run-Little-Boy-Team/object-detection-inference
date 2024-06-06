@@ -1,19 +1,20 @@
 # Run RLB object detection
 Running RLB object detection model in Python or C++.
 
-Note: the Python version is missing some functionalities that the C++ version have.
-
 ## Installation
 
 ### Python
 Run [./python/install.sh](./python/install.sh).
 
+Note: the Python version is missing some functionalities that the C++ version have.
+
 ### C++
 Run [./c++/install.sh](./c++/install.sh).
 
+Note: the green LED detection algorithm is based on [this](https://github.com/NareshBisht/OpenCV-Color-Detection).
+
 ### GPU support
 Run the install script with the `gpu` argument.
-
 
 ## Usage
 

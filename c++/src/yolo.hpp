@@ -42,6 +42,7 @@ private:
     float rectConfidenceThreshold;
     float iouThreshold;
     bool verbose;
+    int robotId;
     vector<vector<Result>> trackingsList;
     vector<int> trackingCounterList;
     vector<float> preProcessingTimeList;
