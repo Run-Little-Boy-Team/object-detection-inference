@@ -370,7 +370,7 @@ void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
     int minColorValue = 255 * 0.75;
     Scalar minColor = Scalar(minColorValue, minColorValue, minColorValue);
     Scalar maxColor = Scalar(255, 255, 255);
-    int colorDominanceThreshold = 25;
+    int colorDominanceThreshold = 10;
     for (int i = 0; i < resultsList.size(); i++)
     {
         Mat masked;
@@ -435,7 +435,7 @@ void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
 
             if (gCount > bCount && gCount > rCount)
             {
-                // rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
+                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
                 greenLEDs.push_back(Point(cx, cy));
             }
         }
