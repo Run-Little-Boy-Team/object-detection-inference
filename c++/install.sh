@@ -49,7 +49,7 @@ git submodule update --init
 echo "Compiling $name"
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=ON -DNCNN_REQUANT=ON -DNCNN_BUILD_EXAMPLES=OFF ..
+cmake -DCMAKE_BUILD_TYPE=Release -DNCNN_VULKAN=OFF -DNCNN_REQUANT=ON -DNCNN_BUILD_EXAMPLES=OFF ..
 make -j$n
 echo "Installing $name"
 make install
