@@ -435,7 +435,7 @@ void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
 
             if (gCount > bCount && gCount > rCount)
             {
-                rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
+                // rectangle(images[i], Point(cx - 15, cy + 15), Point(cx + 15, cy - 15), Scalar(0, 255, 0), 3);
                 greenLEDs.push_back(Point(cx, cy));
             }
         }
