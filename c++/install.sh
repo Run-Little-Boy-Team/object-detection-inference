@@ -23,7 +23,7 @@ else
     gpu=""
 fi
 
-sudo apt install -y wget libopencv-dev build-essential gcc g++ libprotobuf-dev protobuf-compiler libomp-dev libvulkan-dev
+sudo apt install -y cmake make wget libopencv-dev build-essential gcc g++ libprotobuf-dev protobuf-compiler libomp-dev libvulkan-dev
 
 name="onnxruntime-linux-$arch$gpu-$version"
 file="$name.tgz"
