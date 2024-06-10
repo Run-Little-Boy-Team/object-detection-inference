@@ -2,6 +2,3 @@
 *.pyc
 c++/build
 c++/main
-c++/parse
-c++/read
-c++/sandbox

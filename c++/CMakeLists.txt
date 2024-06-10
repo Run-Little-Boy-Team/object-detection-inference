@@ -37,6 +37,10 @@ if(NOT yaml-cpp_POPULATED)
   add_subdirectory(${yaml-cpp_SOURCE_DIR} ${yaml-cpp_BINARY_DIR})
 endif()
 
+add_custom_command(TARGET main POST_BUILD
+    COMMAND rm ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/parse ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/read ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sandbox
+)
+
 IF(LIBCAMERA_FOUND) 
   target_link_libraries(main PUBLIC ${OpenCV_LIBS} onnxruntime yaml-cpp::yaml-cpp -llccv ncnn)
 else()
