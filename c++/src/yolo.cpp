@@ -235,7 +235,7 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape, vect
                 }
 
                 float score = pow(outputs[(b * shape[1] * shape[2] * shape[3]) + (0 * shape[2] * shape[3]) + (i * shape[3]) + j], 0.6) * pow(maxClassScore, 0.4);
-                if (score > this->rectConfidenceThreshold)
+                if (classId >= 80 && score > this->rectConfidenceThreshold)
                 {
                     confidences.push_back(maxClassScore);
                     classIds.push_back(classId);
@@ -334,12 +334,12 @@ void YOLO::tracking(vector<vector<Result>> &resultsList)
                         continue;
                     }
 
-                    double x1 = std::max(resultsList[i][j].box.x, trackingsList[i][k].box.x);
-                    double y1 = std::max(resultsList[i][j].box.y, trackingsList[i][k].box.y);
-                    double x2 = std::min(resultsList[i][j].box.x + resultsList[i][j].box.width, trackingsList[i][k].box.x + trackingsList[i][k].box.width);
-                    double y2 = std::min(resultsList[i][j].box.y + resultsList[i][j].box.height, trackingsList[i][k].box.y + trackingsList[i][k].box.height);
+                    double x1 = max(resultsList[i][j].box.x, trackingsList[i][k].box.x);
+                    double y1 = max(resultsList[i][j].box.y, trackingsList[i][k].box.y);
+                    double x2 = min(resultsList[i][j].box.x + resultsList[i][j].box.width, trackingsList[i][k].box.x + trackingsList[i][k].box.width);
+                    double y2 = min(resultsList[i][j].box.y + resultsList[i][j].box.height, trackingsList[i][k].box.y + trackingsList[i][k].box.height);
 
-                    double intersectionArea = std::max(0.0, x2 - x1) * std::max(0.0, y2 - y1);
+                    double intersectionArea = max(0.0, x2 - x1) * max(0.0, y2 - y1);
                     double unionArea = resultsList[i][j].box.width * resultsList[i][j].box.height + trackingsList[i][k].box.width * trackingsList[i][k].box.height - intersectionArea;
 
                     double iou = intersectionArea / unionArea;
@@ -367,10 +367,10 @@ void YOLO::tracking(vector<vector<Result>> &resultsList)
 void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
 {
     Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
-    Scalar minColor = Scalar(232, 232, 232);
+    int minColorValue = 255 * 0.75;
+    Scalar minColor = Scalar(minColorValue, minColorValue, minColorValue);
     Scalar maxColor = Scalar(255, 255, 255);
-    int colorDominanceThreshold = 50;
-    int range = 8;
+    int colorDominanceThreshold = 25;
     for (int i = 0; i < resultsList.size(); i++)
     {
         Mat masked;
@@ -390,13 +390,23 @@ void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
             int cx = int(m.m10 / m.m00);
             int cy = int(m.m01 / m.m00);
 
+            Point center(cx, cy);
+            double minRadius = 16;
+            for (Point point : contour)
+            {
+                double distance = norm(point - center);
+                minRadius = min(minRadius, distance);
+            }
+
+            int range = minRadius * 1.5;
+
             int rCount = 0;
             int gCount = 0;
             int bCount = 0;
 
-            for (int j = max(0, cy - range); j < min(images[i].cols, cy + range); j++)
+            for (int j = max(0, cy - range); j < min(images[i].rows, cy + range); j++)
             {
-                for (int k = max(0, cx - range); k < min(images[i].rows, cx + range); k++)
+                for (int k = max(0, cx - range); k < min(images[i].cols, cx + range); k++)
                 {
                     Vec3b pixel = images[i].at<Vec3b>(j, k);
                     int b = pixel[0];
