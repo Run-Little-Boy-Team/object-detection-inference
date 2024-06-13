@@ -222,7 +222,7 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape, vect
         {
             float maxClassScore = 0;
             int classId = 0;
-            for (int j = 0; j < shape[2]; j++)
+            for (int j = 0; j < shape[3]; j++)
             {
                 for (int k = 0; k < shape[1] - 5; k++)
                 {
