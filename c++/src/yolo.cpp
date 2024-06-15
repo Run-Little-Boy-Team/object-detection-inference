@@ -272,7 +272,7 @@ vector<vector<Result>> YOLO::postProcess(float *outputs, vector<int> shape, vect
         resultsList.push_back(results);
     }
     this->liveness(resultsList, images);
-    this->tracking(resultsList);
+    // this->tracking(resultsList);
     return resultsList;
 }
 
@@ -464,10 +464,9 @@ void YOLO::liveness(vector<vector<Result>> &resultsList, vector<Mat> images)
     }
 }
 
-void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps)
+vector<Mat> YOLO::draw(vector<vector<Result>> resultsList, vector<Mat> images, float fps)
 {
-    auto t0 = chrono::high_resolution_clock::now();
-
+    vector<Mat> drawnImages;
     for (int i = 0; i < resultsList.size(); i++)
     {
         Mat image = images[i].clone();
@@ -521,7 +520,20 @@ void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images
                 Scalar(0, 255, 0),
                 2);
         }
-        imshow(to_string(i), image);
+        drawnImages.push_back(image);
+    }
+    return drawnImages;
+}
+
+void YOLO::showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps)
+{
+    auto t0 = chrono::high_resolution_clock::now();
+
+    vector<Mat> drawnImages = this->draw(resultsList, images, fps);
+
+    for (int i = 0; i < drawnImages.size(); i++)
+    {
+        imshow(to_string(i), drawnImages[i]);
     }
 
     auto t1 = chrono::high_resolution_clock::now();

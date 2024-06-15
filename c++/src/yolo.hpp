@@ -60,6 +60,7 @@ public:
     vector<vector<Result>> run(vector<string> paths, bool show);
     void tracking(vector<vector<Result>> &resultsList);
     void liveness(vector<vector<Result>> &resultsList, vector<Mat> images);
+    vector<Mat> draw(vector<vector<Result>> resultsList, vector<Mat> images, float fps);
     void showDetections(vector<vector<Result>> resultsList, vector<Mat> images, float fps);
     void stream(string video, int webcam, bool show);
 };
