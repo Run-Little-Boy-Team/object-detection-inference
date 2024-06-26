@@ -1,5 +1,5 @@
 # Run RLB object detection
-Running RLB object detection model in Python or C++.
+Running [RLB object detection](https://github.com/Run-Little-Boy-Team/object-detection) model in Python or C++.
 
 ## Installation
 
